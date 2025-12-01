@@ -107,10 +107,16 @@
       background: rgba(5, 13, 29, 0.96);
       border-radius: var(--radius);
       border: 1px solid var(--sep);
-      overflow: hidden;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
       box-shadow: var(--shadow);
     }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.stats-table {
+      width: 100%;
+      min-width: 720px;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
     thead th {
       background: linear-gradient(180deg, #071329, #050e21);
       color: var(--muted);
@@ -137,6 +143,23 @@
       border-radius: 999px;
       padding: 3px 7px;
       background: rgba(240,238,228,0.06);
+    }
+
+    /* Su schermi piccoli nascondi colonne secondarie per rendere la classifica più chiara */
+    @media (max-width: 480px) {
+      table.stats-table { font-size: 12px; min-width: 0; }
+      thead th:nth-child(5),
+      thead th:nth-child(6),
+      thead th:nth-child(8),
+      thead th:nth-child(9),
+      thead th:nth-child(10),
+      tbody td:nth-child(5),
+      tbody td:nth-child(6),
+      tbody td:nth-child(8),
+      tbody td:nth-child(9),
+      tbody td:nth-child(10) {
+        display: none;
+      }
     }
 
     /* PARTITE */
@@ -184,12 +207,8 @@
       border: 1px solid rgba(240,238,228,0.28);
       box-shadow: 0 10px 24px rgba(0,0,0,0.7);
     }
-    .scoreboard.w-b {
-      box-shadow: 0 10px 26px rgba(122,196,141,0.45);
-    }
-    .scoreboard.w-c {
-      box-shadow: 0 10px 26px rgba(255,123,127,0.45);
-    }
+    .scoreboard.w-b { box-shadow: 0 10px 26px rgba(122,196,141,0.45); }
+    .scoreboard.w-c { box-shadow: 0 10px 26px rgba(255,123,127,0.45); }
     .sb-side {
       flex: 1;
       display: flex;
@@ -283,7 +302,6 @@
       cursor: pointer;
     }
 
-    /* BOTTOM BAR */
     .bottombar {
       position: fixed;
       left: 0;
@@ -321,7 +339,6 @@
       box-shadow: 0 6px 18px rgba(0,0,0,0.7);
     }
 
-    /* MODAL EDITOR GIORNATA */
     .modal {
       position: fixed;
       inset: 0;
@@ -488,7 +505,7 @@
       <div id="podium" class="podium"></div>
 
       <div class="table-wrap">
-        <table>
+        <table class="stats-table">
           <thead>
             <tr>
               <th>#</th>
@@ -573,7 +590,7 @@
   </div>
 
   <script>
-    // --- DATI INIZIALI: 8 giornate dal file Excel ---
+    // --- DATI INIZIALI: 9 giornate (prime 8 dall'Excel + 9ª dal tuo screenshot) ---
     const initialData = {
       giornate: [
         {
@@ -729,6 +746,25 @@
           autoGolColorati: 0
         },
         {
+          giornata: 9,
+          bianchi: [
+            { player: "BRIAN", goals: 0 },
+            { player: "PIERFRANCESCO", goals: 2 },
+            { player: "GIAN PIERO", goals: 0 },
+            { player: "MARCO", goals: 0 },
+            { player: "RAUL", goals: 0 }
+          ],
+          colorati: [
+            { player: "FILIPPO", goals: 0 },
+            { player: "CHRISTIAN", goals: 0 },
+            { player: "STEFANO", goals: 0 },
+            { player: "EDOARDO", goals: 0 },
+            { player: "CAIO", goals: 0 }
+          ],
+          autoGolBianchi: 0,
+          autoGolColorati: 0
+        },
+        {
           giornata: 10,
           bianchi: [
             { player: "BRIAN", goals: 0 },
@@ -748,11 +784,10 @@
           autoGolColorati: 0
         }
 
-
       ]
     };
 
-    // roster base: include sempre CHRISTIAN tra i nomi selezionabili
+    // roster base: include sempre CHRISTIAN
     const basePlayers = [
       "ALBERTO","ANDREA C","ANDREA D","BRIAN","CAIO","EDOARDO","EMANUELE",
       "FILIPPO","FRANCESCO","GAETANO","GIAN PIERO","GIANLUCA","GIULIO",
@@ -776,7 +811,7 @@
       return Array.from(set).sort();
     }
 
-    // --- CLASSIFICA (stesse regole dell'Excel) ---
+    // --- CLASSIFICA (stesse regole dell'Excel, PTF = PT * (1 + 0.05 * PG)) ---
     function computeStandings() {
       const map = new Map();
 
@@ -1009,12 +1044,12 @@
 
       if (e.target.classList.contains("btn-edit")) {
         openMatchModal("edit", idx);
-        return;
       }
     });
 
-    // MODAL 5vs5
+    // --- MODAL LOGIC ---
     const matchModal = document.getElementById("matchModal");
+    const modalBackdrop = matchModal.querySelector(".modal-backdrop");
     const modalTitle = document.getElementById("modalTitle");
     const modalGiornataNum = document.getElementById("modalGiornataNum");
     const modalBianchiRows = document.getElementById("modalBianchiRows");
@@ -1024,126 +1059,70 @@
     const btnModalClose = document.getElementById("modalClose");
     const btnModalCancel = document.getElementById("modalCancel");
     const btnModalSave = document.getElementById("modalSave");
+    const btnNuovaGiornata = document.getElementById("btnNuovaGiornata");
 
-    let modalMode = "new";
-    let modalIndex = -1;
-    let modalNumeroGiornata = 1;
+    let editingIndex = null;
+    let editingMode = "new";
 
-    function clearModalRows() {
-      modalBianchiRows.innerHTML = "";
-      modalColoratiRows.innerHTML = "";
-    }
-
-    // Impedisce di selezionare lo stesso giocatore più volte (Bianchi + Colorati)
-    function updatePlayerOptions() {
-      const selects = document.querySelectorAll(
-        "#modalBianchiRows select, #modalColoratiRows select"
-      );
-      const selected = new Set();
-      selects.forEach(sel => {
-        const v = sel.value.trim();
-        if (v) selected.add(v);
-      });
-
-      selects.forEach(sel => {
-        const current = sel.value.trim();
-        const options = sel.querySelectorAll("option");
-        options.forEach(opt => {
-          if (!opt.value) {
-            opt.disabled = false;
-            return;
-          }
-          if (opt.value === current) {
-            opt.disabled = false;
-          } else {
-            opt.disabled = selected.has(opt.value);
-          }
-        });
-      });
-    }
-
-    function createPlayerRow(side, playerName = "", goals = 0) {
-      const container = side === "bianchi" ? modalBianchiRows : modalColoratiRows;
-      const row = document.createElement("div");
-      row.className = "modal-row";
-
-      const select = document.createElement("select");
-      const players = getAllPlayers();
-      const optEmpty = document.createElement("option");
-      optEmpty.value = "";
-      optEmpty.textContent = "—";
-      select.appendChild(optEmpty);
-      players.forEach(name => {
-        const opt = document.createElement("option");
-        opt.value = name;
-        opt.textContent = name;
-        if (name === playerName) opt.selected = true;
-        select.appendChild(opt);
-      });
-
-      const inputGoals = document.createElement("input");
-      inputGoals.type = "number";
-      inputGoals.min = "0";
-      inputGoals.value = goals;
-
-      const btnClear = document.createElement("button");
-      btnClear.type = "button";
-      btnClear.textContent = "↺";
-      btnClear.addEventListener("click", () => {
-        select.value = "";
-        inputGoals.value = "0";
-        updatePlayerOptions();
-      });
-
-      select.addEventListener("change", updatePlayerOptions);
-
-      row.appendChild(select);
-      row.appendChild(inputGoals);
-      row.appendChild(btnClear);
-      container.appendChild(row);
-    }
-
-    function fillFixedRows(side, playersArr) {
-      const use = playersArr || [];
+    function buildTeamRows(container, playersArr) {
+      const allPlayers = getAllPlayers();
+      container.innerHTML = "";
       for (let i = 0; i < 5; i++) {
-        const p = use[i] || { player: "", goals: 0 };
-        createPlayerRow(side, p.player, p.goals);
+        const existing = playersArr && playersArr[i] ? playersArr[i] : { player: "", goals: 0 };
+        const row = document.createElement("div");
+        row.className = "modal-row";
+
+        const sel = document.createElement("select");
+        sel.className = "sel-player";
+        sel.innerHTML =
+          `<option value="">— Giocatore —</option>` +
+          allPlayers.map(p =>
+            `<option value="${p}" ${p === existing.player ? "selected" : ""}>${p}</option>`
+          ).join("");
+
+        const inp = document.createElement("input");
+        inp.type = "number";
+        inp.className = "in-goals";
+        inp.min = "0";
+        inp.value = existing.goals || 0;
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn-clear";
+        btn.textContent = "✕";
+
+        row.appendChild(sel);
+        row.appendChild(inp);
+        row.appendChild(btn);
+        container.appendChild(row);
       }
     }
 
-    function openMatchModal(mode, index = -1) {
-      modalMode = mode;
-      modalIndex = index;
-      clearModalRows();
+    function openMatchModal(mode, index) {
+      editingMode = mode;
+      editingIndex = index != null ? index : null;
 
-      const players = getAllPlayers();
-      if (!players.length) {
-        alert("Non ci sono ancora giocatori in lista.");
-      }
-
-      if (mode === "new") {
-        const last = state.giornate.reduce(
-          (max, g) => Math.max(max, g.giornata || 0),
-          0
-        );
-        modalNumeroGiornata = last + 1 || 1;
-        modalTitle.textContent = "Nuova giornata";
-        modalAutoB.value = "0";
-        modalAutoC.value = "0";
-        fillFixedRows("bianchi", []);
-        fillFixedRows("colorati", []);
-      } else {
-        const g = state.giornate[index];
-        modalNumeroGiornata = g.giornata;
-        modalTitle.textContent = "Modifica giornata";
+      if (mode === "edit" && editingIndex != null) {
+        const g = state.giornate[editingIndex];
+        modalTitle.textContent = `Modifica giornata ${g.giornata}`;
+        modalGiornataNum.textContent = g.giornata;
         modalAutoB.value = g.autoGolBianchi || 0;
         modalAutoC.value = g.autoGolColorati || 0;
-        fillFixedRows("bianchi", g.bianchi);
-        fillFixedRows("colorati", g.colorati);
+        buildTeamRows(modalBianchiRows, g.bianchi);
+        buildTeamRows(modalColoratiRows, g.colorati);
+      } else {
+        const maxG = state.giornate.length
+          ? Math.max(...state.giornate.map(x => x.giornata))
+          : 0;
+        const next = maxG + 1;
+        modalTitle.textContent = "Nuova giornata";
+        modalGiornataNum.textContent = next;
+        modalAutoB.value = 0;
+        modalAutoC.value = 0;
+        buildTeamRows(modalBianchiRows, null);
+        buildTeamRows(modalColoratiRows, null);
       }
 
-      modalGiornataNum.textContent = modalNumeroGiornata;
-      updatePlayerOptions();
       matchModal.classList.add("show");
     }
 
@@ -1151,46 +1130,87 @@
       matchModal.classList.remove("show");
     }
 
+    modalBackdrop.addEventListener("click", closeMatchModal);
     btnModalClose.addEventListener("click", closeMatchModal);
     btnModalCancel.addEventListener("click", closeMatchModal);
-    matchModal.querySelector(".modal-backdrop").addEventListener("click", closeMatchModal);
+
+    [modalBianchiRows, modalColoratiRows].forEach(container => {
+      container.addEventListener("click", e => {
+        if (e.target.classList.contains("btn-clear")) {
+          const row = e.target.closest(".modal-row");
+          if (!row) return;
+          const sel = row.querySelector(".sel-player");
+          const inp = row.querySelector(".in-goals");
+          sel.value = "";
+          inp.value = 0;
+        }
+      });
+    });
+
+    function readTeam(container) {
+      const rows = Array.from(container.querySelectorAll(".modal-row"));
+      const team = [];
+      rows.forEach(r => {
+        const sel = r.querySelector(".sel-player");
+        const inp = r.querySelector(".in-goals");
+        const name = sel.value.trim();
+        if (name) {
+          team.push({
+            player: name,
+            goals: Number(inp.value) || 0
+          });
+        }
+      });
+      return team;
+    }
 
     btnModalSave.addEventListener("click", () => {
-      function readSide(container) {
-        const result = [];
-        container.querySelectorAll(".modal-row").forEach(row => {
-          const sel = row.querySelector("select");
-          const inp = row.querySelector("input");
-          const name = sel.value.trim();
-          if (!name) return;
-          const goals = Number(inp.value) || 0;
-          result.push({ player: name, goals });
-        });
-        return result;
-      }
-
-      const bianchi = readSide(modalBianchiRows);
-      const colorati = readSide(modalColoratiRows);
-      const autoB = Number(modalAutoB.value) || 0;
-      const autoC = Number(modalAutoC.value) || 0;
+      const bianchi = readTeam(modalBianchiRows);
+      const colorati = readTeam(modalColoratiRows);
 
       if (bianchi.length !== 5 || colorati.length !== 5) {
-        alert("Devi selezionare esattamente 5 giocatori per Bianchi e 5 per Colorati, senza duplicati.");
+        alert("Devi selezionare esattamente 5 giocatori per squadra.");
         return;
       }
 
-      const giornataObj = {
-        giornata: modalNumeroGiornata,
-        bianchi,
-        colorati,
-        autoGolBianchi: autoB,
-        autoGolColorati: autoC
-      };
+      const allNames = [...bianchi.map(p => p.player), ...colorati.map(p => p.player)];
+      const dupSet = new Set();
+      const duplicates = allNames.filter((n, i) => {
+        if (allNames.indexOf(n) !== i) {
+          dupSet.add(n);
+          return true;
+        }
+        return false;
+      });
+      if (duplicates.length > 0) {
+        alert("Ogni giocatore può comparire una sola volta nella partita.\nDuplice/i: " + Array.from(dupSet).join(", "));
+        return;
+      }
 
-      if (modalMode === "new") {
-        state.giornate.push(giornataObj);
+      const autoB = Number(modalAutoB.value) || 0;
+      const autoC = Number(modalAutoC.value) || 0;
+
+      if (editingMode === "edit" && editingIndex != null) {
+        const old = state.giornate[editingIndex];
+        state.giornate[editingIndex] = {
+          giornata: old.giornata,
+          bianchi,
+          colorati,
+          autoGolBianchi: autoB,
+          autoGolColorati: autoC
+        };
       } else {
-        state.giornate[modalIndex] = giornataObj;
+        const maxG = state.giornate.length
+          ? Math.max(...state.giornate.map(x => x.giornata))
+          : 0;
+        const next = maxG + 1;
+        state.giornate.push({
+          giornata: next,
+          bianchi,
+          colorati,
+          autoGolBianchi: autoB,
+          autoGolColorati: autoC
+        });
       }
 
       fullStandings = computeStandings();
@@ -1200,28 +1220,23 @@
       closeMatchModal();
     });
 
-    document.getElementById("btnNuovaGiornata").addEventListener("click", () => {
-      openMatchModal("new");
-    });
+    btnNuovaGiornata.addEventListener("click", () => openMatchModal("new"));
 
-    // NAVIGAZIONE
-    const tabs = document.querySelectorAll(".tab");
-    const views = document.querySelectorAll(".view");
-    tabs.forEach(btn => {
-      btn.addEventListener("click", () => {
-        tabs.forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        const target = btn.dataset.view;
-        views.forEach(v => v.classList.toggle("active", v.id === target));
+    // TAB BAR
+    document.querySelectorAll(".tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+        const viewId = tab.dataset.view;
+        document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+        document.getElementById(viewId).classList.add("active");
       });
     });
 
-    // INIT
-    fullStandings = computeStandings();
+    // Primo render
     renderPodium();
     renderClassifica(fullStandings);
     renderPartite();
   </script>
 </body>
 </html>
-
