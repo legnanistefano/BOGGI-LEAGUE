@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Boggi League</title>
+  <style>
+    :root {
+      /* Palette ispirata a Boggi: navy + beige chiaro */
+      --bg: #020713;
+      --bg2: #071226;
+      --card: rgba(7, 18, 38, 0.92);
+      --glass-soft: rgba(12, 26, 56, 0.88);
+      --text: #f0eee4;
+      --muted: #b4bccb;
+      --accent: #f0eee4;
+      --accent2: #c5a48c;
+      --good: #7ac48d;
+      --bad: #ff7b7f;
+      --sep: rgba(255, 255, 255, 0.18);
+      --shadow: 0 18px 40px rgba(0, 0, 0, 0.7);
+      --radius: 16px;
+      --radius-sm: 12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+      background: radial-gradient(circle at top, #0a1631 0, var(--bg) 55%, #01030a 100%);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 90px;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: calc(10px + env(safe-area-inset-top)) 18px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      backdrop-filter: blur(24px) saturate(200%);
+      background: linear-gradient(180deg, #030915, #050d20);
+      border-bottom: 1px solid var(--sep);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.65);
+    }
+    .title {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 0.28px;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .subtitle {
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.1px;
+    }
+
+    main { padding: 16px 16px 100px; }
+    .view { display: none; }
+    .view.active { display: block; animation: fadeIn 0.25s; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(4px);} to{opacity:1;transform:translateY(0);} }
+
+    /* CLASSIFICA */
+    .search-bar { margin-bottom: 14px; }
+    .search-bar input {
+      width: 100%;
+      padding: 11px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--sep);
+      background: rgba(3, 10, 23, 0.9);
+      color: var(--text);
+      font-size: 14px;
+    }
+    .search-bar input::placeholder { color: var(--muted); }
+
+    .podium {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .podium-card {
+      border-radius: var(--radius);
+      padding: 12px 10px;
+      text-align: center;
+      background: radial-gradient(circle at top, rgba(240,238,228,0.14), rgba(1,3,10,0.9));
+      border: 1px solid var(--sep);
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    .podium-card.first { border-color: var(--accent2); }
+    .podium-card.second { opacity: 0.96; }
+    .podium-card.third { opacity: 0.96; }
+    .podium-medal { font-size: 24px; margin-bottom: 6px; }
+    .podium-name { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+    .podium-points { font-size: 18px; font-weight: 800; color: var(--accent); }
+    .podium-stats { font-size: 11px; color: var(--muted); }
+
+    .table-wrap {
+      background: rgba(5, 13, 29, 0.96);
+      border-radius: var(--radius);
+      border: 1px solid var(--sep);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th {
+      background: linear-gradient(180deg, #071329, #050e21);
+      color: var(--muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.4px;
+      padding: 10px 6px;
+      border-bottom: 1px solid var(--sep);
+      position: sticky;
+      top: 0;
+      z-index: 5;
+    }
+    tbody td {
+      padding: 9px 6px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      white-space: nowrap;
+    }
+    tbody tr:nth-child(even) { background: rgba(255,255,255,0.015); }
+    tbody tr:hover { background: rgba(240,238,228,0.05); }
+    tbody td:first-child { font-weight: 700; color: var(--muted); }
+    .player-cell { font-weight: 700; cursor: pointer; }
+    .player-cell span {
+      border-radius: 999px;
+      padding: 3px 7px;
+      background: rgba(240,238,228,0.06);
+    }
+
+    /* PARTITE */
+    .top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      gap: 8px;
+    }
+    .top-row-title { font-size: 15px; font-weight: 600; color: var(--muted); }
+    .pill-button {
+      border-radius: 999px;
+      padding: 8px 14px;
+      border: 1px solid var(--sep);
+      background: rgba(5, 13, 27, 0.96);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .cards { display: flex; flex-direction: column; gap: 14px; }
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      border: 1px solid var(--sep);
+      padding: 14px;
+      box-shadow: var(--shadow);
+    }
+
+    /* Scoreboard stile Serie A + Boggi */
+    .scoreboard {
+      border-radius: 14px;
+      padding: 10px 14px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: linear-gradient(90deg, #050f22 0%, #071a34 50%, #050f22 100%);
+      border: 1px solid rgba(240,238,228,0.28);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.7);
+    }
+    .scoreboard.w-b {
+      box-shadow: 0 10px 26px rgba(122,196,141,0.45);
+    }
+    .scoreboard.w-c {
+      box-shadow: 0 10px 26px rgba(255,123,127,0.45);
+    }
+    .sb-side {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .sb-team-name {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #f0eee4;
+    }
+    .sb-team-name.right { text-align: right; }
+    .sb-center {
+      min-width: 110px;
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 6px;
+    }
+    .sb-score {
+      font-size: 26px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+    .sb-score.b { color: var(--good); }
+    .sb-score.c { color: var(--bad); }
+    .sb-sep {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      opacity: 0.8;
+    }
+
+    .giornata-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .teams-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .team-col-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .player-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 8px;
+      margin-bottom: 4px;
+      border-radius: var(--radius-sm);
+      background: rgba(3,8,18,0.9);
+      border: 1px solid rgba(255,255,255,0.08);
+      font-size: 12px;
+    }
+    .player-name { font-weight: 600; }
+    .goal-badge {
+      min-width: 22px;
+      text-align: center;
+      border-radius: 999px;
+      padding: 2px 6px;
+      background: rgba(240,238,228,0.14);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .card-footer {
+      margin-top: 10px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .small-btn {
+      font-size: 11px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--sep);
+      background: rgba(3,8,18,0.9);
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    /* BOTTOM BAR */
+    .bottombar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 200;
+      display: flex;
+      gap: 10px;
+      padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
+      backdrop-filter: blur(22px) saturate(220%);
+      background: linear-gradient(180deg, rgba(3,8,18,0.4), rgba(1,3,8,0.98));
+      border-top: 1px solid var(--sep);
+      box-shadow: 0 -10px 30px rgba(0,0,0,0.7);
+    }
+    .tab {
+      flex: 1;
+      border-radius: 999px;
+      border: 1px solid var(--sep);
+      background: rgba(240,238,228,0.05);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 9px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .tab.active {
+      background: linear-gradient(135deg, #f0eee4, #c5a48c);
+      color: #020713;
+      border-color: transparent;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.7);
+    }
+
+    /* MODAL EDITOR GIORNATA */
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 300;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal.show { display: flex; }
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(10px);
+    }
+    .modal-sheet {
+      position: relative;
+      width: 100%;
+      max-width: 520px;
+      border-radius: 18px 18px 0 0;
+      background: linear-gradient(180deg, #040b19, #020713);
+      border-top: 1px solid rgba(240,238,228,0.26);
+      box-shadow: 0 -18px 40px rgba(0,0,0,0.9);
+      padding: 12px 16px 14px;
+    }
+    .modal-handle {
+      width: 40px;
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(240,238,228,0.35);
+      margin: 2px auto 8px;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .modal-title { font-size: 16px; font-weight: 700; }
+    .modal-sub { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+    .modal-close {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 18px;
+      padding: 4px;
+      cursor: pointer;
+    }
+    .modal-giornata-label {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--accent2);
+    }
+    .modal-teams {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .modal-team {
+      background: rgba(3,8,18,0.95);
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(240,238,228,0.25);
+      padding: 8px;
+    }
+    .modal-team .team-col-title { margin-bottom: 4px; }
+    .modal-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+    .modal-row {
+      display: grid;
+      grid-template-columns: 1fr 54px auto;
+      gap: 6px;
+      align-items: center;
+    }
+    .modal-row select,
+    .modal-row input {
+      width: 100%;
+      border-radius: 999px;
+      border: 1px solid rgba(240,238,228,0.3);
+      background: rgba(2,7,19,0.9);
+      color: var(--text);
+      font-size: 12px;
+      padding: 5px 8px;
+    }
+    .modal-row input { text-align: center; }
+    .modal-row button {
+      border-radius: 999px;
+      border: 1px solid rgba(240,238,228,0.28);
+      background: rgba(240,238,228,0.05);
+      color: var(--muted);
+      font-size: 12px;
+      padding: 4px 6px;
+      cursor: pointer;
+    }
+    .modal-autogol {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .modal-autogol label {
+      display: block;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+    .modal-autogol input {
+      width: 100%;
+      border-radius: 999px;
+      border: 1px solid rgba(240,238,228,0.3);
+      background: rgba(2,7,19,0.9);
+      color: var(--text);
+      font-size: 12px;
+      padding: 5px 8px;
+      text-align: center;
+    }
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .btn-secondary,
+    .btn-primary {
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--sep);
+    }
+    .btn-secondary {
+      background: rgba(240,238,228,0.05);
+      color: var(--muted);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #f0eee4, #c5a48c);
+      border-color: transparent;
+      color: #020713;
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="title">Boggi League</div>
+      <div class="subtitle">Classifica & partite 5vs5, stile Boggi</div>
+    </div>
+  </header>
+
+  <main>
+    <!-- CLASSIFICA -->
+    <section id="classificaView" class="view active">
+      <div class="search-bar">
+        <input id="searchPlayer" type="search" placeholder="🔍 Cerca o tocca un nome per rinominarlo…" />
+      </div>
+
+      <div id="podium" class="podium"></div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Giocatore</th>
+              <th>PTF</th>
+              <th>PT</th>
+              <th>MPP</th>
+              <th>MGP</th>
+              <th>PG</th>
+              <th>V</th>
+              <th>N</th>
+              <th>P</th>
+              <th>GF</th>
+              <th>GS</th>
+              <th>DR</th>
+            </tr>
+          </thead>
+          <tbody id="classificaBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- PARTITE -->
+    <section id="partiteView" class="view">
+      <div class="top-row">
+        <div class="top-row-title">Partite per giornata (5vs5)</div>
+        <button class="pill-button" id="btnNuovaGiornata">
+          <span>➕</span>Nuova giornata
+        </button>
+      </div>
+      <div id="partiteContainer" class="cards"></div>
+    </section>
+  </main>
+
+  <nav class="bottombar">
+    <button class="tab active" data-view="classificaView">🏆 Classifica</button>
+    <button class="tab" data-view="partiteView">⚽ Partite</button>
+  </nav>
+
+  <!-- MODAL EDITOR GIORNATA -->
+  <div id="matchModal" class="modal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <div class="modal-title" id="modalTitle">Nuova giornata</div>
+        <button class="modal-close" id="modalClose">✕</button>
+      </div>
+      <div class="modal-sub">Seleziona 5 giocatori per squadra: nessun nome può essere ripetuto.</div>
+
+      <div class="modal-giornata-label">
+        Giornata <span id="modalGiornataNum"></span> • 5vs5
+      </div>
+
+      <div class="modal-teams">
+        <div class="modal-team">
+          <div class="team-col-title">Bianchi</div>
+          <div id="modalBianchiRows" class="modal-rows"></div>
+        </div>
+        <div class="modal-team">
+          <div class="team-col-title">Colorati</div>
+          <div id="modalColoratiRows" class="modal-rows"></div>
+        </div>
+      </div>
+
+      <div class="modal-autogol">
+        <div>
+          <label>Auto gol Bianchi</label>
+          <input id="modalAutoB" type="number" min="0" value="0" />
+        </div>
+        <div>
+          <label>Auto gol Colorati</label>
+          <input id="modalAutoC" type="number" min="0" value="0" />
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="modalCancel" class="btn-secondary">Annulla</button>
+        <button id="modalSave" class="btn-primary">Salva</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- DATI INIZIALI: 8 giornate dal file Excel ---
+    const initialData = {
+      giornate: [
+        {
+          giornata: 1,
+          bianchi: [
+            { player: "GIAN PIERO", goals: 2 },
+            { player: "LUCA", goals: 4 },
+            { player: "EMANUELE", goals: 4 },
+            { player: "MARCO", goals: 0 },
+            { player: "GIANLUCA", goals: 3 }
+          ],
+          colorati: [
+            { player: "BRIAN", goals: 2 },
+            { player: "STEFANO", goals: 0 },
+            { player: "CAIO", goals: 2 },
+            { player: "PIERFRANCESCO", goals: 2 },
+            { player: "LUIGI", goals: 1 }
+          ],
+          autoGolBianchi: 0,
+          autoGolColorati: 0
+        },
+        {
+          giornata: 2,
+          bianchi: [
+            { player: "LUCA", goals: 0 },
+            { player: "GIAN PIERO", goals: 3 },
+            { player: "STEFANO", goals: 1 },
+            { player: "ALBERTO", goals: 2 },
+            { player: "LUIGI", goals: 0 }
+          ],
+          colorati: [
+            { player: "EMANUELE", goals: 4 },
+            { player: "FILIPPO", goals: 2 },
+            { player: "BRIAN", goals: 1 },
+            { player: "PIERFRANCESCO", goals: 0 },
+            { player: "GIANLUCA", goals: 1 }
+          ],
+          autoGolBianchi: 0,
+          autoGolColorati: 0
+        },
+        {
+          giornata: 3,
+          bianchi: [
+            { player: "GIAN PIERO", goals: 0 },
+            { player: "LUIGI", goals: 1 },
+            { player: "ALBERTO", goals: 5 },
+            { player: "CAIO", goals: 2 },
+            { player: "EDOARDO", goals: 1 }
+          ],
+          colorati: [
+            { player: "BRIAN", goals: 2 },
+            { player: "GIULIO", goals: 3 },
+            { player: "FILIPPO", goals: 4 },
+            { player: "ANDREA C", goals: 3 },
+            { player: "PIERFRANCESCO", goals: 0 }
+          ],
+          autoGolBianchi: 1,
+          autoGolColorati: 1
+        },
+        {
+          giornata: 4,
+          bianchi: [
+            { player: "BRIAN", goals: 4 },
+            { player: "ALBERTO", goals: 2 },
+            { player: "ANDREA C", goals: 3 },
+            { player: "LUCA", goals: 2 },
+            { player: "EDOARDO", goals: 2 }
+          ],
+          colorati: [
+            { player: "GIANLUCA", goals: 0 },
+            { player: "STEFANO", goals: 3 },
+            { player: "CAIO", goals: 1 },
+            { player: "GIAN PIERO", goals: 1 },
+            { player: "MARCO", goals: 3 }
+          ],
+          autoGolBianchi: 0,
+          autoGolColorati: 0
+        },
+        {
+          giornata: 5,
+          bianchi: [
+            { player: "BRIAN", goals: 1 },
+            { player: "STEFANO", goals: 2 },
+            { player: "GIAN PIERO", goals: 0 },
+            { player: "CAIO", goals: 0 },
+            { player: "PIERFRANCESCO", goals: 2 }
+          ],
+          colorati: [
+            { player: "LUCA", goals: 3 },
+            { player: "FILIPPO", goals: 0 },
+            { player: "ALBERTO", goals: 2 },
+            { player: "ANDREA C", goals: 0 },
+            { player: "FRANCESCO", goals: 1 }
+          ],
+          autoGolBianchi: 0,
+          autoGolColorati: 0
+        },
+        {
+          giornata: 6,
+          bianchi: [
+            { player: "FILIPPO", goals: 2 },
+            { player: "STEFANO", goals: 5 },
+            { player: "RAUL", goals: 3 },
+            { player: "CAIO", goals: 0 },
+            { player: "LUIGI", goals: 0 }
+          ],
+          colorati: [
+            { player: "LUCA", goals: 3 },
+            { player: "GAETANO", goals: 1 },
+            { player: "SAMUELE", goals: 1 },
+            { player: "ALBERTO", goals: 1 },
+            { player: "FRANCESCO", goals: 1 }
+          ],
+          autoGolBianchi: 0,
+          autoGolColorati: 1
+        },
+        {
+          giornata: 7,
+          bianchi: [
+            { player: "BRIAN", goals: 1 },
+            { player: "STEFANO", goals: 1 },
+            { player: "GIAN PIERO", goals: 1 },
+            { player: "CAIO", goals: 0 },
+            { player: "EDOARDO", goals: 0 }
+          ],
+          colorati: [
+            { player: "FILIPPO", goals: 3 },
+            { player: "ANDREA C", goals: 0 },
+            { player: "MARCO", goals: 1 },
+            { player: "RAUL", goals: 3 },
+            { player: "PIERFRANCESCO", goals: 0 }
+          ],
+          autoGolBianchi: 0,
+          autoGolColorati: 0
+        },
+        {
+          giornata: 8,
+          bianchi: [
+            { player: "FILIPPO", goals: 3 },
+            { player: "STEFANO", goals: 3 },
+            { player: "LUCA", goals: 0 },
+            { player: "CAIO", goals: 2 },
+            { player: "EDOARDO", goals: 0 }
+          ],
+          colorati: [
+            { player: "BRIAN", goals: 1 },
+            { player: "ALBERTO", goals: 2 },
+            { player: "RAUL", goals: 4 },
+            { player: "GIAN PIERO", goals: 3 },
+            { player: "LUIGI", goals: 0 }
+          ],
+          autoGolBianchi: 0,
+          autoGolColorati: 0
+        }
+      ]
+    };
+
+    // roster base: include sempre CHRISTIAN tra i nomi selezionabili
+    const basePlayers = [
+      "ALBERTO","ANDREA C","ANDREA D","BRIAN","CAIO","EDOARDO","EMANUELE",
+      "FILIPPO","FRANCESCO","GAETANO","GIAN PIERO","GIANLUCA","GIULIO",
+      "LUCA","LUIGI","MARCO","PIERFRANCESCO","RAUL","STEFANO","CHRISTIAN"
+    ];
+
+    const state = {
+      giornate: JSON.parse(JSON.stringify(initialData.giornate))
+    };
+
+    function sumGoals(arr) {
+      return arr.reduce((s, p) => s + (Number(p.goals) || 0), 0);
+    }
+
+    function getAllPlayers() {
+      const set = new Set(basePlayers);
+      state.giornate.forEach(g => {
+        g.bianchi.forEach(p => set.add(p.player));
+        g.colorati.forEach(p => set.add(p.player));
+      });
+      return Array.from(set).sort();
+    }
+
+    // --- CLASSIFICA (stesse regole dell'Excel) ---
+    function computeStandings() {
+      const map = new Map();
+
+      function ensure(name) {
+        if (!map.has(name)) {
+          map.set(name, {
+            Giocatore: name,
+            PG: 0,
+            V: 0,
+            N: 0,
+            P: 0,
+            GF: 0,
+            GS: 0,
+            DR: 0,
+            PT: 0,
+            MPP: 0,
+            MGP: 0,
+            PTF: 0
+          });
+        }
+        return map.get(name);
+      }
+
+      state.giornate.forEach(g => {
+        const totB = sumGoals(g.bianchi) + (g.autoGolBianchi || 0);
+        const totC = sumGoals(g.colorati) + (g.autoGolColorati || 0);
+        let resB = "N", resC = "N";
+        if (totB > totC) { resB = "V"; resC = "P"; }
+        else if (totB < totC) { resB = "P"; resC = "V"; }
+
+        g.bianchi.forEach(p => {
+          const s = ensure(p.player);
+          s.PG += 1;
+          s.GF += Number(p.goals) || 0;
+          s.GS += totC;
+          if (resB === "V") { s.V += 1; s.PT += 3; }
+          else if (resB === "N") { s.N += 1; s.PT += 1; }
+          else { s.P += 1; }
+        });
+
+        g.colorati.forEach(p => {
+          const s = ensure(p.player);
+          s.PG += 1;
+          s.GF += Number(p.goals) || 0;
+          s.GS += totB;
+          if (resC === "V") { s.V += 1; s.PT += 3; }
+          else if (resC === "N") { s.N += 1; s.PT += 1; }
+          else { s.P += 1; }
+        });
+      });
+
+      const list = Array.from(map.values());
+      list.forEach(p => {
+        p.DR = p.GF - p.GS;
+        if (p.PG > 0) {
+          p.MPP = p.PT / p.PG;
+          p.MGP = p.GF / p.PG;
+        } else {
+          p.MPP = 0;
+          p.MGP = 0;
+        }
+        p.PTF = p.PT * (1 + 0.05 * p.PG);
+      });
+
+      list.sort((a, b) => {
+        if (b.PTF !== a.PTF) return b.PTF - a.PTF;
+        if (b.PT  !== a.PT)  return b.PT  - a.PT;
+        if (b.GF  !== a.GF)  return b.GF  - a.GF;
+        return b.DR - a.DR;
+      });
+
+      return list;
+    }
+
+    const classificaBody = document.getElementById("classificaBody");
+    const podiumEl = document.getElementById("podium");
+    const searchInput = document.getElementById("searchPlayer");
+    let fullStandings = computeStandings();
+
+    function renderPodium() {
+      const top3 = fullStandings.slice(0, 3);
+      const medals = ["🥇", "🥈", "🥉"];
+      const classes = ["first", "second", "third"];
+      podiumEl.innerHTML = top3.map((p, i) => `
+        <div class="podium-card ${classes[i]}">
+          <div class="podium-medal">${medals[i]}</div>
+          <div class="podium-name">${p.Giocatore}</div>
+          <div class="podium-points">${p.PTF.toFixed(2)} PTF</div>
+          <div class="podium-stats">${p.PT} PT • ${p.V}V • ${p.N}N • ${p.P}P</div>
+        </div>
+      `).join("");
+    }
+
+    function renderClassifica(list) {
+      classificaBody.innerHTML = list.map((p, idx) => `
+        <tr>
+          <td>${idx + 1}</td>
+          <td class="player-cell" data-player="${p.Giocatore}">
+            <span>${p.Giocatore}</span>
+          </td>
+          <td>${p.PTF.toFixed(2)}</td>
+          <td>${p.PT}</td>
+          <td>${p.MPP.toFixed(2)}</td>
+          <td>${p.MGP.toFixed(2)}</td>
+          <td>${p.PG}</td>
+          <td>${p.V}</td>
+          <td>${p.N}</td>
+          <td>${p.P}</td>
+          <td>${p.GF}</td>
+          <td>${p.GS}</td>
+          <td>${p.DR}</td>
+        </tr>
+      `).join("");
+    }
+
+    searchInput.addEventListener("input", () => {
+      const q = searchInput.value.trim().toLowerCase();
+      const filtered = q
+        ? fullStandings.filter(p => p.Giocatore.toLowerCase().includes(q))
+        : fullStandings;
+      renderClassifica(filtered);
+    });
+
+    // rinomina giocatore toccando il nome
+    classificaBody.addEventListener("click", (e) => {
+      const cell = e.target.closest(".player-cell");
+      if (!cell) return;
+      const oldName = cell.dataset.player;
+      const nuovo = prompt(`Nuovo nome per "${oldName}"?`, oldName);
+      if (!nuovo || nuovo.trim() === "" || nuovo === oldName) return;
+      const newName = nuovo.trim();
+
+      state.giornate.forEach(g => {
+        g.bianchi.forEach(p => { if (p.player === oldName) p.player = newName; });
+        g.colorati.forEach(p => { if (p.player === oldName) p.player = newName; });
+      });
+
+      fullStandings = computeStandings();
+      renderPodium();
+      renderClassifica(fullStandings);
+      renderPartite();
+    });
+
+    // PARTITE
+    const partiteContainer = document.getElementById("partiteContainer");
+
+    function renderPartite() {
+      const cards = state.giornate
+        .slice()
+        .sort((a, b) => a.giornata - b.giornata)
+        .map((g, index) => {
+          const totB = sumGoals(g.bianchi) + (g.autoGolBianchi || 0);
+          const totC = sumGoals(g.colorati) + (g.autoGolColorati || 0);
+          let sbClass = "";
+          if (totB > totC) sbClass = "w-b";
+          else if (totC > totB) sbClass = "w-c";
+          return `
+          <div class="card" data-index="${index}">
+            <div class="giornata-label">Giornata ${g.giornata}</div>
+            <div class="scoreboard ${sbClass}">
+              <div class="sb-side">
+                <div class="sb-team-name">Bianchi</div>
+              </div>
+              <div class="sb-center">
+                <span class="sb-score b">${totB}</span>
+                <span class="sb-sep">-</span>
+                <span class="sb-score c">${totC}</span>
+              </div>
+              <div class="sb-side">
+                <div class="sb-team-name right">Colorati</div>
+              </div>
+            </div>
+            <div class="teams-grid">
+              <div>
+                <div class="team-col-title">Bianchi (5)</div>
+                ${g.bianchi.map(p => `
+                  <div class="player-row">
+                    <span class="player-name">${p.player}</span>
+                    <span class="goal-badge">${p.goals}</span>
+                  </div>
+                `).join("")}
+                ${g.autoGolBianchi ? `
+                  <div class="player-row">
+                    <span class="player-name">AUTO GOL</span>
+                    <span class="goal-badge">${g.autoGolBianchi}</span>
+                  </div>` : ""}
+              </div>
+              <div>
+                <div class="team-col-title">Colorati (5)</div>
+                ${g.colorati.map(p => `
+                  <div class="player-row">
+                    <span class="player-name">${p.player}</span>
+                    <span class="goal-badge">${p.goals}</span>
+                  </div>
+                `).join("")}
+                ${g.autoGolColorati ? `
+                  <div class="player-row">
+                    <span class="player-name">AUTO GOL</span>
+                    <span class="goal-badge">${g.autoGolColorati}</span>
+                  </div>` : ""}
+              </div>
+            </div>
+            <div class="card-footer">
+              <button class="small-btn btn-edit">Modifica</button>
+              <button class="small-btn btn-delete">Elimina</button>
+            </div>
+          </div>
+        `;
+        }).join("");
+
+      partiteContainer.innerHTML = cards;
+    }
+
+    partiteContainer.addEventListener("click", (e) => {
+      const card = e.target.closest(".card");
+      if (!card) return;
+      const idx = Number(card.dataset.index);
+      const g = state.giornate[idx];
+
+      if (e.target.classList.contains("btn-delete")) {
+        if (confirm(`Eliminare la giornata ${g.giornata}?`)) {
+          state.giornate.splice(idx, 1);
+          fullStandings = computeStandings();
+          renderPodium();
+          renderClassifica(fullStandings);
+          renderPartite();
+        }
+        return;
+      }
+
+      if (e.target.classList.contains("btn-edit")) {
+        openMatchModal("edit", idx);
+        return;
+      }
+    });
+
+    // MODAL 5vs5
+    const matchModal = document.getElementById("matchModal");
+    const modalTitle = document.getElementById("modalTitle");
+    const modalGiornataNum = document.getElementById("modalGiornataNum");
+    const modalBianchiRows = document.getElementById("modalBianchiRows");
+    const modalColoratiRows = document.getElementById("modalColoratiRows");
+    const modalAutoB = document.getElementById("modalAutoB");
+    const modalAutoC = document.getElementById("modalAutoC");
+    const btnModalClose = document.getElementById("modalClose");
+    const btnModalCancel = document.getElementById("modalCancel");
+    const btnModalSave = document.getElementById("modalSave");
+
+    let modalMode = "new";
+    let modalIndex = -1;
+    let modalNumeroGiornata = 1;
+
+    function clearModalRows() {
+      modalBianchiRows.innerHTML = "";
+      modalColoratiRows.innerHTML = "";
+    }
+
+    // Impedisce di selezionare lo stesso giocatore più volte (Bianchi + Colorati)
+    function updatePlayerOptions() {
+      const selects = document.querySelectorAll(
+        "#modalBianchiRows select, #modalColoratiRows select"
+      );
+      const selected = new Set();
+      selects.forEach(sel => {
+        const v = sel.value.trim();
+        if (v) selected.add(v);
+      });
+
+      selects.forEach(sel => {
+        const current = sel.value.trim();
+        const options = sel.querySelectorAll("option");
+        options.forEach(opt => {
+          if (!opt.value) {
+            opt.disabled = false;
+            return;
+          }
+          if (opt.value === current) {
+            opt.disabled = false;
+          } else {
+            opt.disabled = selected.has(opt.value);
+          }
+        });
+      });
+    }
+
+    function createPlayerRow(side, playerName = "", goals = 0) {
+      const container = side === "bianchi" ? modalBianchiRows : modalColoratiRows;
+      const row = document.createElement("div");
+      row.className = "modal-row";
+
+      const select = document.createElement("select");
+      const players = getAllPlayers();
+      const optEmpty = document.createElement("option");
+      optEmpty.value = "";
+      optEmpty.textContent = "—";
+      select.appendChild(optEmpty);
+      players.forEach(name => {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        if (name === playerName) opt.selected = true;
+        select.appendChild(opt);
+      });
+
+      const inputGoals = document.createElement("input");
+      inputGoals.type = "number";
+      inputGoals.min = "0";
+      inputGoals.value = goals;
+
+      const btnClear = document.createElement("button");
+      btnClear.type = "button";
+      btnClear.textContent = "↺";
+      btnClear.addEventListener("click", () => {
+        select.value = "";
+        inputGoals.value = "0";
+        updatePlayerOptions();
+      });
+
+      select.addEventListener("change", updatePlayerOptions);
+
+      row.appendChild(select);
+      row.appendChild(inputGoals);
+      row.appendChild(btnClear);
+      container.appendChild(row);
+    }
+
+    function fillFixedRows(side, playersArr) {
+      const use = playersArr || [];
+      for (let i = 0; i < 5; i++) {
+        const p = use[i] || { player: "", goals: 0 };
+        createPlayerRow(side, p.player, p.goals);
+      }
+    }
+
+    function openMatchModal(mode, index = -1) {
+      modalMode = mode;
+      modalIndex = index;
+      clearModalRows();
+
+      const players = getAllPlayers();
+      if (!players.length) {
+        alert("Non ci sono ancora giocatori in lista.");
+      }
+
+      if (mode === "new") {
+        const last = state.giornate.reduce(
+          (max, g) => Math.max(max, g.giornata || 0),
+          0
+        );
+        modalNumeroGiornata = last + 1 || 1;
+        modalTitle.textContent = "Nuova giornata";
+        modalAutoB.value = "0";
+        modalAutoC.value = "0";
+        fillFixedRows("bianchi", []);
+        fillFixedRows("colorati", []);
+      } else {
+        const g = state.giornate[index];
+        modalNumeroGiornata = g.giornata;
+        modalTitle.textContent = "Modifica giornata";
+        modalAutoB.value = g.autoGolBianchi || 0;
+        modalAutoC.value = g.autoGolColorati || 0;
+        fillFixedRows("bianchi", g.bianchi);
+        fillFixedRows("colorati", g.colorati);
+      }
+
+      modalGiornataNum.textContent = modalNumeroGiornata;
+      updatePlayerOptions();
+      matchModal.classList.add("show");
+    }
+
+    function closeMatchModal() {
+      matchModal.classList.remove("show");
+    }
+
+    btnModalClose.addEventListener("click", closeMatchModal);
+    btnModalCancel.addEventListener("click", closeMatchModal);
+    matchModal.querySelector(".modal-backdrop").addEventListener("click", closeMatchModal);
+
+    btnModalSave.addEventListener("click", () => {
+      function readSide(container) {
+        const result = [];
+        container.querySelectorAll(".modal-row").forEach(row => {
+          const sel = row.querySelector("select");
+          const inp = row.querySelector("input");
+          const name = sel.value.trim();
+          if (!name) return;
+          const goals = Number(inp.value) || 0;
+          result.push({ player: name, goals });
+        });
+        return result;
+      }
+
+      const bianchi = readSide(modalBianchiRows);
+      const colorati = readSide(modalColoratiRows);
+      const autoB = Number(modalAutoB.value) || 0;
+      const autoC = Number(modalAutoC.value) || 0;
+
+      if (bianchi.length !== 5 || colorati.length !== 5) {
+        alert("Devi selezionare esattamente 5 giocatori per Bianchi e 5 per Colorati, senza duplicati.");
+        return;
+      }
+
+      const giornataObj = {
+        giornata: modalNumeroGiornata,
+        bianchi,
+        colorati,
+        autoGolBianchi: autoB,
+        autoGolColorati: autoC
+      };
+
+      if (modalMode === "new") {
+        state.giornate.push(giornataObj);
+      } else {
+        state.giornate[modalIndex] = giornataObj;
+      }
+
+      fullStandings = computeStandings();
+      renderPodium();
+      renderClassifica(fullStandings);
+      renderPartite();
+      closeMatchModal();
+    });
+
+    document.getElementById("btnNuovaGiornata").addEventListener("click", () => {
+      openMatchModal("new");
+    });
+
+    // NAVIGAZIONE
+    const tabs = document.querySelectorAll(".tab");
+    const views = document.querySelectorAll(".view");
+    tabs.forEach(btn => {
+      btn.addEventListener("click", () => {
+        tabs.forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        const target = btn.dataset.view;
+        views.forEach(v => v.classList.toggle("active", v.id === target));
+      });
+    });
+
+    // INIT
+    fullStandings = computeStandings();
+    renderPodium();
+    renderClassifica(fullStandings);
+    renderPartite();
+  </script>
+</body>
+</html>
